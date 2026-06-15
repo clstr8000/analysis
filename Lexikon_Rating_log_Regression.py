@@ -14,11 +14,9 @@ from sklearn.feature_selection import SelectFromModel
 # =========================================================
 # KONFIGURATION
 # =========================================================
-
 BASE_DIR = Path(__file__).resolve().parent
-PROJECT_DIR = BASE_DIR.parent
 
-LEXICON_FILE = PROJECT_DIR / "yelp_final.csv"
+LEXICON_FILE = BASE_DIR / "data" / "yelp_final.csv"
 
 TEXT_COLUMN = "text"
 RATING_COLUMN = "rating"
