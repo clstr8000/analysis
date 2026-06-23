@@ -17,7 +17,8 @@ TOPIC_SEEDS = {
         "meal", "taste", "flavor", "sauce", "portion", "fresh",
         "delicious", "tasty", "crispy", "juicy", "spicy", "bland",
         "soggy", "cold food", "hot food", "overcooked", "undercooked",
-        "burnt", "salty", "seasoning",
+        "burnt", "salty", "seasoning", "texture", "quality", "freshness",
+        "temperature", "lukewarm", "dry chicken", "tender chicken",
         "chick-fil-a chicken biscuit", "spicy chicken biscuit",
         "chick-fil-a chick-n-minis", "chick-n-minis", "egg white grill",
         "hash brown scramble burrito", "hash brown scramble bowl",
@@ -53,68 +54,69 @@ TOPIC_SEEDS = {
         "service", "staff", "employee", "employees", "worker", "workers",
         "cashier", "manager", "friendly", "helpful", "polite", "rude",
         "attentive", "unprofessional", "customer service", "greeted",
-        "welcoming", "attitude", "respectful", "disrespectful"
-    ],
-
-    "ORDER_ACCURACY": [
-        "wrong order", "incorrect order", "missing item", "missing items",
-        "forgot", "forgotten", "left out", "messed up order",
-        "order was wrong", "gave me wrong", "did not receive",
-        "missing sauce", "no sauce", "wrong sauce", "wrong drink",
-        "wrong sandwich", "wrong meal", "order accuracy", "accurate order"
+        "welcoming", "attitude", "respectful", "disrespectful",
+        "kind", "courteous", "patient", "impatient", "professional",
+        "pleasant", "smiling", "smile", "care", "caring", "hospitality",
+        "team member", "crew", "server", "assistance", "help", "ignored",
+        "apologized", "accommodating", "knowledgeable", "training"
     ],
 
     "SPEED": [
         "fast", "slow", "quick", "quickly", "speed", "speedy",
         "service speed", "order ready", "ready fast", "took forever",
         "took too long", "delay", "delayed", "immediate", "efficient",
-        "inefficient"
-    ],
-
-    "WAITING": [
-        "wait", "waiting", "wait time", "long wait", "short wait",
-        "line", "queue", "long line", "short line", "stood in line",
-        "standing in line", "crowded line", "busy", "rush", "lunch rush"
-    ],
-
-    "DRIVE_THRU": [
-        "drive thru", "drive-thru", "drive through", "drive-through",
-        "drive thru line", "drive-thru line", "lane", "lanes",
-        "speaker", "menu board", "window", "pickup window",
-        "drive thru service", "drive thru order", "car line"
+        "inefficient", "wait", "waiting", "wait time", "long wait",
+        "short wait", "line", "queue", "long line", "short line",
+        "stood in line", "standing in line", "crowded line", "busy", "rush",
+        "lunch rush", "dinner rush", "peak hour", "served quickly",
+        "served fast", "ready quickly", "slow service", "fast service",
+        "order time", "pickup time", "turnaround", "backed up"
     ],
 
     "HYGIENE": [
         "clean", "dirty", "messy", "filthy", "spotless", "sanitary",
         "unsanitary", "hygiene", "cleanliness", "sticky", "smell",
         "odor", "trash", "garbage", "bathroom", "restroom",
-        "table", "tables", "floor", "floors"
+        "table", "tables", "floor", "floors", "counter", "counters",
+        "sink", "toilet", "napkin", "spill", "spilled", "greasy",
+        "dusty", "stain", "stained", "cleaned", "unclean", "neat",
+        "tidy", "sanitized", "soap", "paper towel", "overflowing trash"
     ],
 
     "VALUE": [
         "price", "prices", "expensive", "cheap", "value", "worth",
         "deal", "combo", "meal deal", "affordable", "overpriced",
         "cost", "charged", "fair price", "reasonable", "unreasonable",
-        "portion size"
+        "portion size", "money", "receipt", "bill", "total", "discount",
+        "coupon", "reward", "rewards", "points", "free item", "promotion",
+        "special", "pricey", "low price", "high price", "good value",
+        "bad value", "not worth", "worth it", "small portion", "large portion"
     ],
 
     "AMBIENCE": [
         "ambience", "atmosphere", "vibe", "environment", "seating",
         "dining room", "inside", "restaurant", "location", "crowded",
         "quiet", "loud", "noisy", "comfortable", "uncomfortable",
-        "decor", "music", "lighting"
+        "decor", "music", "lighting", "space", "layout", "interior",
+        "booth", "chair", "chairs", "table", "tables", "family friendly",
+        "kid friendly", "play area", "temperature", "air conditioning",
+        "warm", "cold", "busy atmosphere", "calm", "relaxing", "modern"
     ],
 
     "PARKING": [
         "parking", "parking lot", "parking spot", "parking spaces",
         "car", "cars", "lot", "garage", "parked", "hard to park",
-        "easy parking", "traffic", "entrance", "exit"
+        "easy parking", "traffic", "entrance", "exit", "street parking",
+        "curbside", "curb", "pickup spot", "parking area", "small lot",
+        "full lot", "crowded lot", "traffic flow", "turn in", "turn out",
+        "blocked", "congested", "nearby parking", "free parking"
     ],
 
     "DRINKS": [
         "drink", "drinks", "beverage", "soda", "tea", "sweet tea",
         "iced tea", "lemonade", "water", "coffee", "milkshake",
         "shake", "refill", "fountain drink", "ice", "watery",
+        "cold drink", "hot drink", "carbonated", "flat soda", "fresh lemonade",
         "pineapple dragonfruit sprite", "pineapple dragonfruit & sprite",
         "pineapple dragonfruit lemonade", "pineapple dragonfruit sunjoy",
         "pineapple dragonfruit teas", "chick-fil-a lemonade", "diet lemonade",
@@ -134,14 +136,20 @@ TOPIC_SEEDS = {
     "ACCESSIBILITY": [
         "wheelchair", "accessible", "accessibility", "entrance",
         "ramp", "stairs", "disabled", "handicap", "elevator",
-        "restroom access", "parking access", "easy access"
+        "restroom access", "parking access", "easy access", "door",
+        "automatic door", "wide door", "narrow door", "mobility", "walker",
+        "stroller", "step", "curb", "sidewalk", "path", "space",
+        "accessible parking", "handicap parking", "accessible table",
+        "accessible restroom", "low counter", "high counter"
     ],
 
     "GENERAL": [
         "good", "bad", "great", "nice", "amazing", "terrible",
         "awful", "excellent", "fine", "okay", "average",
         "experience", "visit", "place", "spot", "location",
-        "recommend", "disappointed", "satisfied"
+        "recommend", "disappointed", "satisfied", "overall", "favorite",
+        "best", "worst", "love", "liked", "enjoyed", "happy", "unhappy",
+        "return", "come back", "never again", "consistent", "inconsistent"
     ]
 }
 
