@@ -15,8 +15,9 @@ from sklearn.feature_selection import SelectFromModel
 # KONFIGURATION
 # =========================================================
 BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = BASE_DIR / "data"
 
-LEXICON_FILE = BASE_DIR / "data" / "yelp_final.csv"
+LEXICON_FILE = DATA_DIR / "yelp_final.csv"
 
 TEXT_COLUMN = "text"
 RATING_COLUMN = "rating"
@@ -28,6 +29,7 @@ TIMESTAMP = datetime.now().strftime("%d_%m_%Y_%H_%M")
 
 OUTPUT_LEXICON_MODEL = BASE_DIR / "sentiment_lexicon_model.joblib"
 OUTPUT_LEXICON_EXCEL = BASE_DIR / f"generated_sentiment_lexicon_{TIMESTAMP}.xlsx"
+OUTPUT_LEXICON_LATEST = BASE_DIR / "generated_sentiment_lexicon_latest.xlsx"
 
 
 # =========================================================
@@ -197,14 +199,18 @@ def main():
 
     joblib.dump(artifact, OUTPUT_LEXICON_MODEL)
 
-    print("Speichere Lexikon-Excel-Datei...")
+    print("Speichere Lexikon-Excel-Dateien...")
 
     with pd.ExcelWriter(OUTPUT_LEXICON_EXCEL, engine="openpyxl") as writer:
+        lexicon.to_excel(writer, sheet_name="lexicon", index=False)
+
+    with pd.ExcelWriter(OUTPUT_LEXICON_LATEST, engine="openpyxl") as writer:
         lexicon.to_excel(writer, sheet_name="lexicon", index=False)
 
     print("\nFERTIG\n")
     print(f"Lexikon-Artefakt: {OUTPUT_LEXICON_MODEL}")
     print(f"Lexikon-Excel-Datei: {OUTPUT_LEXICON_EXCEL}")
+    print(f"Aktuelle Lexikon-Excel-Datei: {OUTPUT_LEXICON_LATEST}")
 
 
 # =========================================================
