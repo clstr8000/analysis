@@ -7,22 +7,18 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 from collections import defaultdict
-from scipy.sparse import csr_matrix
 
 import spacy
-from spacy.matcher import Matcher
 
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
-
-from sentence_transformers import SentenceTransformer
 
 
 # ------------------------------------------------------------
 # 0. Modelle laden
 # ------------------------------------------------------------
 
-nlp = spacy.load("en_core_web_trf")
+nlp = spacy.load("en_core_web_sm")
 nlp.max_length = 2_000_000
 
 # echtes 1–5 Sterne Sentimentmodell
@@ -30,25 +26,61 @@ SENT_MODEL = "nlptown/bert-base-multilingual-uncased-sentiment"
 sent_tokenizer = AutoTokenizer.from_pretrained(SENT_MODEL)
 sent_model = AutoModelForSequenceClassification.from_pretrained(SENT_MODEL)
 
-# Embedding-Modell (für spätere Erweiterungen)
-bert_embed = SentenceTransformer("all-MiniLM-L6-v2")
-
 
 # ------------------------------------------------------------
 # 1. Topic-Wörter (Fallback)
 # ------------------------------------------------------------
 
 TOPIC_WORDS = {
-    "FOOD": {"food","meal","burger","fries","sandwich","chicken","taste","flavor"},
-    "DRINKS": {"drink","coffee","tea","soda","water","juice","milkshake"},
-    "HYGIENE": {"clean","dirty","hygiene","messy","filthy","spotless"},
-    "SERVICE": {"service","staff","employee","friendly","rude","manager"},
-    "VALUE": {"price","expensive","cheap","value","cost","overpriced"},
-    "AMBIENCE": {"ambience","atmosphere","vibe","music","decor","lighting"},
-    "ACCESSIBILITY": {"wheelchair","accessible","entrance","ramp","stairs"},
-    "PARKING": {"parking","lot","car","drive-thru","garage"},
-    "SPEED": {"fast","slow","quick","delay","instant"},
-    "WAITING": {"wait","waiting","queue","line","wait time"}
+    "FOOD": {
+        "food", "meal", "sandwich", "chicken", "fries", "nuggets", "salad",
+        "wrap", "strips", "biscuit", "muffin", "hash browns", "mac and cheese",
+        "soup", "sauce", "dressing", "taste", "flavor", "crispy", "fresh",
+        "spicy", "portion", "quality", "temperature", "cold food", "hot food"
+    },
+    "DRINKS": {
+        "drink", "drinks", "beverage", "soda", "tea", "sweet tea", "iced tea",
+        "lemonade", "diet lemonade", "sunjoy", "water", "juice", "orange juice",
+        "milk", "chocolate milk", "coffee", "iced coffee", "hot coffee",
+        "milkshake", "shake", "frosted lemonade", "refill", "ice"
+    },
+    "HYGIENE": {
+        "clean", "dirty", "hygiene", "messy", "filthy", "spotless", "sanitary",
+        "unsanitary", "cleanliness", "sticky", "smell", "odor", "trash",
+        "garbage", "bathroom", "restroom", "table", "floor", "counter", "sink"
+    },
+    "SERVICE": {
+        "service", "staff", "employee", "employees", "worker", "cashier",
+        "manager", "team", "friendly", "helpful", "polite", "kind", "rude",
+        "attentive", "welcoming", "professional", "unprofessional", "attitude",
+        "customer service", "greeted"
+    },
+    "VALUE": {
+        "price", "prices", "expensive", "cheap", "value", "cost", "overpriced",
+        "affordable", "worth", "deal", "combo", "coupon", "discount", "charged",
+        "receipt", "portion size", "reasonable", "unreasonable", "money"
+    },
+    "AMBIENCE": {
+        "ambience", "atmosphere", "vibe", "environment", "seating", "seat",
+        "table", "dining room", "inside", "restaurant", "location", "crowded",
+        "quiet", "loud", "noisy", "comfortable", "decor", "music", "lighting"
+    },
+    "ACCESSIBILITY": {
+        "wheelchair", "accessible", "accessibility", "entrance", "ramp", "stairs",
+        "disabled", "handicap", "elevator", "restroom access", "parking access",
+        "easy access", "door", "space", "mobility"
+    },
+    "PARKING": {
+        "parking", "parking lot", "parking spot", "parking spaces", "car", "cars",
+        "lot", "garage", "parked", "hard to park", "easy parking", "traffic",
+        "entrance", "exit", "street parking", "curbside"
+    },
+    "SPEED": {
+        "fast", "slow", "quick", "quickly", "speed", "speedy", "delay",
+        "delayed", "instant", "efficient", "inefficient", "wait", "waiting",
+        "wait time", "long wait", "short wait", "line", "queue", "long line",
+        "short line", "rush", "busy", "took forever", "took too long"
+    }
 }
 
 
