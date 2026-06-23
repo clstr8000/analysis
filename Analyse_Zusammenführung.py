@@ -6,6 +6,7 @@
 from pathlib import Path
 from datetime import datetime
 from collections import defaultdict
+import re
 
 import pandas as pd
 import numpy as np
@@ -21,11 +22,22 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 
-REVIEWS_FILE = DATA_DIR / "ChickFilA_Bereinigt.xlsx"
+REVIEWS_FILE = DATA_DIR / "yelp_final.csv"
 RATING_LEXICON_FILE = BASE_DIR / "generated_sentiment_lexicon_latest.xlsx"
 TOPIC_LEXICON_FILE = BASE_DIR / "topic_lexicon_seeds_only.xlsx"
 OUTPUT_SENTENCE_LEVEL = BASE_DIR / "absa_sentence_level.xlsx"
 OUTPUT_REVIEW_LEVEL = BASE_DIR / "absa_review_level.xlsx"
+
+TEXT_COLUMN = "text"
+BUSINESS_NAME_COLUMN = "business_name"
+
+CFA_PATTERNS = [
+    r"chick[\s\-]?fil[\s\-]?a",
+    r"chickfila",
+    r"chik[\s\-]?fil[\s\-]?a",
+    r"cfa\b"
+]
+CFA_REGEX = re.compile("|".join(CFA_PATTERNS), flags=re.IGNORECASE)
 
 nlp = spacy.load("en_core_web_sm")
 nlp.max_length = 2_000_000
@@ -37,65 +49,176 @@ sent_model = AutoModelForSequenceClassification.from_pretrained(SENT_MODEL)
 
 
 # ------------------------------------------------------------
-# 1. Topic-Wörter (Fallback)
+# 1. Topic-Wörter (Fallback aus den Topic-Seeds)
 # ------------------------------------------------------------
 
 TOPIC_WORDS = {
     "FOOD": {
-        "food", "meal", "sandwich", "chicken", "fries", "nuggets", "salad",
-        "wrap", "strips", "biscuit", "muffin", "hash browns", "mac and cheese",
-        "soup", "sauce", "dressing", "taste", "flavor", "crispy", "fresh",
-        "spicy", "portion", "quality", "temperature", "cold food", "hot food"
-    },
-    "DRINKS": {
-        "drink", "drinks", "beverage", "soda", "tea", "sweet tea", "iced tea",
-        "lemonade", "diet lemonade", "sunjoy", "water", "juice", "orange juice",
-        "milk", "chocolate milk", "coffee", "iced coffee", "hot coffee",
-        "milkshake", "shake", "frosted lemonade", "refill", "ice"
-    },
-    "HYGIENE": {
-        "clean", "dirty", "hygiene", "messy", "filthy", "spotless", "sanitary",
-        "unsanitary", "cleanliness", "sticky", "smell", "odor", "trash",
-        "garbage", "bathroom", "restroom", "table", "floor", "counter", "sink"
+        "food", "burger", "sandwich", "chicken", "fries", "nuggets",
+        "meal", "taste", "flavor", "sauce", "portion", "fresh",
+        "delicious", "tasty", "crispy", "juicy", "spicy", "bland",
+        "soggy", "cold food", "hot food", "overcooked", "undercooked",
+        "burnt", "salty", "seasoning", "texture", "quality", "freshness",
+        "temperature", "lukewarm", "dry chicken", "tender chicken",
+        "chick-fil-a chicken biscuit", "spicy chicken biscuit",
+        "chick-fil-a chick-n-minis", "chick-n-minis", "egg white grill",
+        "hash brown scramble burrito", "hash brown scramble bowl",
+        "chicken egg cheese biscuit", "bacon egg cheese biscuit",
+        "sausage egg cheese biscuit", "chicken egg cheese muffin",
+        "bacon egg cheese muffin", "sausage egg cheese muffin", "hash browns",
+        "berry parfait", "fruit cup", "honey pepper pimento sandwich",
+        "honey pepper pimento", "pimento cheese", "pickled jalapenos",
+        "chick-fil-a chicken sandwich", "spicy deluxe sandwich",
+        "spicy chicken sandwich", "chick-fil-a nuggets", "grilled nuggets",
+        "chick-fil-a deluxe sandwich", "chick-fil-a cool wrap", "cool wrap",
+        "chick-n-strips", "chicken strips", "grilled chicken sandwich",
+        "grilled chicken club sandwich", "cobb salad", "spicy southwest salad",
+        "market salad", "side salad", "waffle potato fries", "waffle fries",
+        "mac and cheese", "mac & cheese", "chicken noodle soup",
+        "waffle potato chips", "original flavor waffle potato chips",
+        "chick-fil-a sauce flavored waffle potato chips", "apple sauce",
+        "buddy fruits apple sauce", "kale crunch side", "peach milkshake",
+        "vanilla milkshake", "cookies cream milkshake",
+        "cookies & cream milkshake", "chocolate milkshake",
+        "strawberry milkshake", "icedream cup", "icedream cone",
+        "chocolate chunk cookie", "chocolate fudge brownie",
+        "barbeque sauce", "chick-fil-a sauce", "garden herb ranch sauce",
+        "honey mustard sauce", "polynesian sauce", "sweet spicy sriracha sauce",
+        "sweet & spicy sriracha sauce", "zesty buffalo sauce",
+        "honey roasted bbq sauce", "avocado lime ranch dressing",
+        "creamy salsa dressing", "fat-free honey mustard dressing",
+        "garden herb ranch dressing", "light balsamic vinaigrette dressing",
+        "light italian dressing", "zesty apple cider vinaigrette dressing"
     },
     "SERVICE": {
-        "service", "staff", "employee", "employees", "worker", "cashier",
-        "manager", "team", "friendly", "helpful", "polite", "kind", "rude",
-        "attentive", "welcoming", "professional", "unprofessional", "attitude",
-        "customer service", "greeted"
-    },
-    "VALUE": {
-        "price", "prices", "expensive", "cheap", "value", "cost", "overpriced",
-        "affordable", "worth", "deal", "combo", "coupon", "discount", "charged",
-        "receipt", "portion size", "reasonable", "unreasonable", "money"
-    },
-    "AMBIENCE": {
-        "ambience", "atmosphere", "vibe", "environment", "seating", "seat",
-        "table", "dining room", "inside", "restaurant", "location", "crowded",
-        "quiet", "loud", "noisy", "comfortable", "decor", "music", "lighting"
-    },
-    "ACCESSIBILITY": {
-        "wheelchair", "accessible", "accessibility", "entrance", "ramp", "stairs",
-        "disabled", "handicap", "elevator", "restroom access", "parking access",
-        "easy access", "door", "space", "mobility"
-    },
-    "PARKING": {
-        "parking", "parking lot", "parking spot", "parking spaces", "car", "cars",
-        "lot", "garage", "parked", "hard to park", "easy parking", "traffic",
-        "entrance", "exit", "street parking", "curbside"
+        "service", "staff", "employee", "employees", "worker", "workers",
+        "cashier", "manager", "friendly", "helpful", "polite", "rude",
+        "attentive", "unprofessional", "customer service", "greeted",
+        "welcoming", "attitude", "respectful", "disrespectful",
+        "kind", "courteous", "patient", "impatient", "professional",
+        "pleasant", "smiling", "smile", "care", "caring", "hospitality",
+        "team member", "crew", "server", "assistance", "help", "ignored",
+        "apologized", "accommodating", "knowledgeable", "training"
     },
     "SPEED": {
-        "fast", "slow", "quick", "quickly", "speed", "speedy", "delay",
-        "delayed", "instant", "efficient", "inefficient", "wait", "waiting",
-        "wait time", "long wait", "short wait", "line", "queue", "long line",
-        "short line", "rush", "busy", "took forever", "took too long"
+        "fast", "slow", "quick", "quickly", "speed", "speedy",
+        "service speed", "order ready", "ready fast", "took forever",
+        "took too long", "delay", "delayed", "immediate", "efficient",
+        "inefficient", "wait", "waiting", "wait time", "long wait",
+        "short wait", "line", "queue", "long line", "short line",
+        "stood in line", "standing in line", "crowded line", "busy", "rush",
+        "lunch rush", "dinner rush", "peak hour", "served quickly",
+        "served fast", "ready quickly", "slow service", "fast service",
+        "order time", "pickup time", "turnaround", "backed up"
+    },
+    "HYGIENE": {
+        "clean", "dirty", "messy", "filthy", "spotless", "sanitary",
+        "unsanitary", "hygiene", "cleanliness", "sticky", "smell",
+        "odor", "trash", "garbage", "bathroom", "restroom",
+        "table", "tables", "floor", "floors", "counter", "counters",
+        "sink", "toilet", "napkin", "spill", "spilled", "greasy",
+        "dusty", "stain", "stained", "cleaned", "unclean", "neat",
+        "tidy", "sanitized", "soap", "paper towel", "overflowing trash"
+    },
+    "VALUE": {
+        "price", "prices", "expensive", "cheap", "value", "worth",
+        "deal", "combo", "meal deal", "affordable", "overpriced",
+        "cost", "charged", "fair price", "reasonable", "unreasonable",
+        "portion size", "money", "receipt", "bill", "total", "discount",
+        "coupon", "reward", "rewards", "points", "free item", "promotion",
+        "special", "pricey", "low price", "high price", "good value",
+        "bad value", "not worth", "worth it", "small portion", "large portion"
+    },
+    "AMBIENCE": {
+        "ambience", "atmosphere", "vibe", "environment", "seating",
+        "dining room", "inside", "restaurant", "location", "crowded",
+        "quiet", "loud", "noisy", "comfortable", "uncomfortable",
+        "decor", "music", "lighting", "space", "layout", "interior",
+        "booth", "chair", "chairs", "table", "tables", "family friendly",
+        "kid friendly", "play area", "temperature", "air conditioning",
+        "warm", "cold", "busy atmosphere", "calm", "relaxing", "modern"
+    },
+    "PARKING": {
+        "parking", "parking lot", "parking spot", "parking spaces",
+        "car", "cars", "lot", "garage", "parked", "hard to park",
+        "easy parking", "traffic", "entrance", "exit", "street parking",
+        "curbside", "curb", "pickup spot", "parking area", "small lot",
+        "full lot", "crowded lot", "traffic flow", "turn in", "turn out",
+        "blocked", "congested", "nearby parking", "free parking"
+    },
+    "DRINKS": {
+        "drink", "drinks", "beverage", "soda", "tea", "sweet tea",
+        "iced tea", "lemonade", "water", "coffee", "milkshake",
+        "shake", "refill", "fountain drink", "ice", "watery",
+        "cold drink", "hot drink", "carbonated", "flat soda", "fresh lemonade",
+        "pineapple dragonfruit sprite", "pineapple dragonfruit & sprite",
+        "pineapple dragonfruit lemonade", "pineapple dragonfruit sunjoy",
+        "pineapple dragonfruit teas", "chick-fil-a lemonade", "diet lemonade",
+        "sunjoy", "half sweet tea half lemonade",
+        "half sweet tea half diet lemonade", "half unsweet tea half lemonade",
+        "half unsweet tea half diet lemonade", "freshly-brewed sweetened iced tea",
+        "freshly-brewed unsweetened iced tea", "sweetened iced tea",
+        "unsweetened iced tea", "iced coffee", "dasani bottled water",
+        "bottled water", "honest kids apple juice", "apple juice",
+        "simply orange", "orange juice", "chocolate milk", "1% chocolate milk",
+        "milk", "1% milk", "dr pepper", "seasonal gallon beverages",
+        "gallon beverages", "coca-cola", "hot coffee",
+        "pineapple dragonfruit frosted lemonade", "peach frosted lemonade",
+        "frosted lemonade", "frosted sodas", "floats", "frosted coffee"
+    },
+    "ACCESSIBILITY": {
+        "wheelchair", "accessible", "accessibility", "entrance",
+        "ramp", "stairs", "disabled", "handicap", "elevator",
+        "restroom access", "parking access", "easy access", "door",
+        "automatic door", "wide door", "narrow door", "mobility", "walker",
+        "stroller", "step", "curb", "sidewalk", "path", "space",
+        "accessible parking", "handicap parking", "accessible table",
+        "accessible restroom", "low counter", "high counter"
+    },
+    "GENERAL": {
+        "good", "bad", "great", "nice", "amazing", "terrible",
+        "awful", "excellent", "fine", "okay", "average",
+        "experience", "visit", "place", "spot", "location",
+        "recommend", "disappointed", "satisfied", "overall", "favorite",
+        "best", "worst", "love", "liked", "enjoyed", "happy", "unhappy",
+        "return", "come back", "never again", "consistent", "inconsistent"
     }
 }
 
 
 # ------------------------------------------------------------
-# 2. Rating-Lexikon laden
+# 2. Input und Lexika laden
 # ------------------------------------------------------------
+
+def load_cfa_reviews(path):
+    df = pd.read_csv(path)
+
+    missing_columns = {TEXT_COLUMN, BUSINESS_NAME_COLUMN} - set(df.columns)
+    if missing_columns:
+        raise ValueError(
+            f"Diese Spalten fehlen in yelp_final.csv: {sorted(missing_columns)}"
+        )
+
+    df = df[df[TEXT_COLUMN].notna()].copy()
+    df[TEXT_COLUMN] = df[TEXT_COLUMN].astype(str)
+    df = df[df[TEXT_COLUMN].str.strip() != ""]
+    df = df[df[TEXT_COLUMN].str.strip().str.lower() != "nan"]
+
+    is_cfa = df[BUSINESS_NAME_COLUMN].astype(str).str.contains(CFA_REGEX, na=False)
+    df_cfa = df[is_cfa].copy()
+
+    if df_cfa.empty:
+        raise ValueError("Keine Chick-fil-A-Bewertungen in yelp_final.csv gefunden.")
+
+    return df_cfa
+
+
+def row_value(row, columns, default=None):
+    for column in columns:
+        if column in row and pd.notna(row[column]):
+            return row[column]
+    return default
+
 
 def load_rating_lexicon(path):
     df = pd.read_excel(path)
@@ -107,10 +230,6 @@ def load_rating_lexicon(path):
         lex[term] = (rating, conf)
     return lex
 
-
-# ------------------------------------------------------------
-# 3. Topic-Lexikon laden
-# ------------------------------------------------------------
 
 def load_topic_lexicon(path):
     df = pd.read_excel(path)
@@ -124,7 +243,7 @@ def load_topic_lexicon(path):
 
 
 # ------------------------------------------------------------
-# 4. echtes BERT-Sentiment (1–5 Sterne)
+# 3. echtes BERT-Sentiment (1–5 Sterne)
 # ------------------------------------------------------------
 
 def bert_sentence_rating(sent):
@@ -139,7 +258,7 @@ def bert_sentence_rating(sent):
 
 
 # ------------------------------------------------------------
-# 5. Rating-Kombination: Lexikon + BERT
+# 4. Rating-Kombination: Lexikon + BERT
 # ------------------------------------------------------------
 
 def combine_rating(term, sent, rating_lex):
@@ -157,7 +276,7 @@ def combine_rating(term, sent, rating_lex):
 
 
 # ------------------------------------------------------------
-# 6. Topic bestimmen
+# 5. Topic bestimmen
 # ------------------------------------------------------------
 
 def get_topic(term, topic_lex):
@@ -168,7 +287,7 @@ def get_topic(term, topic_lex):
         topic, conf = topic_lex[term_norm]
         return topic, conf
 
-    # 2. TOPIC_WORDS
+    # 2. Fallback mit Topic-Seeds
     for topic, words in TOPIC_WORDS.items():
         if term_norm in words:
             return topic, 1.0
@@ -178,7 +297,7 @@ def get_topic(term, topic_lex):
 
 
 # ------------------------------------------------------------
-# 7. Aspekte extrahieren (NOUN + compound)
+# 6. Aspekte extrahieren (NOUN + compound)
 # ------------------------------------------------------------
 
 def extract_aspects(sent):
@@ -196,7 +315,7 @@ def extract_aspects(sent):
 
 
 # ------------------------------------------------------------
-# 8. ABSA-Satzanalyse
+# 7. ABSA-Satzanalyse
 # ------------------------------------------------------------
 
 def analyze_sentence(sent, rating_lex, topic_lex):
@@ -234,7 +353,7 @@ def analyze_sentence(sent, rating_lex, topic_lex):
 
 
 # ------------------------------------------------------------
-# 9. Review-Pipeline (mit Aggregation)
+# 8. Review-Pipeline (mit Aggregation)
 # ------------------------------------------------------------
 
 def run_absa_pipeline(df_reviews, rating_lex, topic_lex):
@@ -242,10 +361,10 @@ def run_absa_pipeline(df_reviews, rating_lex, topic_lex):
     review_rows = []
 
     for _, row in df_reviews.iterrows():
-        text = row["text"]
-        user_id = row["user_id"]
-        store_id = row["store_id"]
-        time_raw = row["time"]
+        text = row[TEXT_COLUMN]
+        user_id = row_value(row, ["user_id", "author_id", "reviewer_id"])
+        store_id = row_value(row, ["store_id", "business_id", "location_id", BUSINESS_NAME_COLUMN])
+        time_raw = row_value(row, ["time", "date", "created_at", "review_date"])
 
         try:
             dt = datetime.strptime(str(time_raw), "%d.%m.%Y %H:%M:%S")
@@ -281,7 +400,7 @@ def run_absa_pipeline(df_reviews, rating_lex, topic_lex):
             "time": time_str
         }
 
-        for topic in list(TOPIC_WORDS.keys()) + ["GENERAL"]:
+        for topic in list(TOPIC_WORDS.keys()):
             vals = topic_groups.get(topic, [])
             if not vals:
                 review_result[topic] = None
@@ -297,11 +416,11 @@ def run_absa_pipeline(df_reviews, rating_lex, topic_lex):
 
 
 # ------------------------------------------------------------
-# 10. MAIN
+# 9. MAIN
 # ------------------------------------------------------------
 
 if __name__ == "__main__":
-    df_reviews = pd.read_excel(REVIEWS_FILE)
+    df_reviews = load_cfa_reviews(REVIEWS_FILE)
     rating_lex = load_rating_lexicon(RATING_LEXICON_FILE)
     topic_lex = load_topic_lexicon(TOPIC_LEXICON_FILE)
 
@@ -311,5 +430,6 @@ if __name__ == "__main__":
     df_reviews_agg.to_excel(OUTPUT_REVIEW_LEVEL, index=False)
 
     print("ABSA Export abgeschlossen.")
+    print(f"Verwendete Chick-fil-A-Bewertungen: {len(df_reviews)}")
     print(f"Satz-Level-Datei: {OUTPUT_SENTENCE_LEVEL}")
     print(f"Review-Level-Datei: {OUTPUT_REVIEW_LEVEL}")
