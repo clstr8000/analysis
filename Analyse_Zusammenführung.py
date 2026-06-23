@@ -30,7 +30,6 @@ OUTPUT_REVIEW_LEVEL = BASE_DIR / "absa_review_level.xlsx"
 
 TEXT_COLUMN = "text"
 BUSINESS_NAME_COLUMN = "business_name"
-MAX_REVIEWS = 50_000
 PROGRESS_EVERY = 500
 
 CFA_PATTERNS = [
@@ -214,10 +213,6 @@ def load_cfa_reviews(path):
 
     if df_cfa.empty:
         raise ValueError("Keine Chick-fil-A-Bewertungen in yelp_final.csv gefunden.")
-
-    if len(df_cfa) > MAX_REVIEWS:
-        print(f"Begrenze ABSA auf die ersten {MAX_REVIEWS:,} Chick-fil-A-Bewertungen.")
-        df_cfa = df_cfa.head(MAX_REVIEWS).copy()
 
     return df_cfa
 
