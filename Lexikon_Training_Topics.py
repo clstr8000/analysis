@@ -224,9 +224,9 @@ def build_topic_lexicon(df):
 
 # 8: Main
 BASE_DIR = Path(__file__).resolve().parent
-PROJECT_DIR = BASE_DIR.parent
+DATA_DIR = BASE_DIR / "data"
 
-INPUT_FILE = PROJECT_DIR / "yelp_final.csv"
+INPUT_FILE = DATA_DIR / "yelp_final.csv"
 OUTPUT_FILE = BASE_DIR / "topic_lexicon_seeds_only.xlsx"
 
 df = pd.read_csv(INPUT_FILE)
