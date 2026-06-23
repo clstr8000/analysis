@@ -22,6 +22,7 @@ MAX_CANDIDATES = 10_000
 NGRAM_MAX_N = 3
 MIN_TOPIC_CONFIDENCE = 0.7
 EMBEDDING_BATCH_SIZE = 64
+SEED_CONFIDENCE = 1.0
 
 # 0.2: BERT laden
 bert = SentenceTransformer("all-MiniLM-L6-v2")  # (BERT analysiert Text kontextuell)
@@ -238,10 +239,36 @@ def assign_topics_with_confidence(words, word_vectors):
                 topic_rows.append({
                     "text": w,
                     "name_cluster": topic,
-                    "confidence": conf
+                    "confidence": conf,
+                    "source": "candidate_similarity"
                 })
-    print(f"Topic-Lexikon-Zeilen: {len(topic_rows):,}")
+    print(f"Topic-Lexikon-Zeilen aus Kandidaten: {len(topic_rows):,}")
     return topic_rows
+
+
+def add_seed_rows(lexicon_df):
+    print("Ergänze Topic-Seeds im Lexikon...")
+    seed_rows = []
+    for topic, seeds in TOPIC_SEEDS.items():
+        for seed in seeds:
+            seed_rows.append({
+                "text": str(seed).lower().strip(),
+                "name_cluster": topic,
+                "confidence": SEED_CONFIDENCE,
+                "source": "topic_seed"
+            })
+
+    seed_df = pd.DataFrame(seed_rows)
+    combined_df = pd.concat([lexicon_df, seed_df], ignore_index=True)
+    combined_df = combined_df.sort_values(
+        ["text", "confidence"], ascending=[True, False]
+    )
+    combined_df = combined_df.drop_duplicates(subset=["text"], keep="first")
+    combined_df = combined_df.sort_values(["name_cluster", "text"]).reset_index(drop=True)
+
+    print(f"Topic-Seeds ergänzt: {len(seed_df):,}")
+    print(f"Topic-Lexikon-Zeilen gesamt: {len(combined_df):,}")
+    return combined_df
 
 # 7: Lexikon bauen
 def build_topic_lexicon(df):
@@ -252,7 +279,8 @@ def build_topic_lexicon(df):
 
     word_vectors, words = embed_words(words)
     topic_rows = assign_topics_with_confidence(words, word_vectors)
-    return pd.DataFrame(topic_rows)
+    lexicon_df = pd.DataFrame(topic_rows)
+    return add_seed_rows(lexicon_df)
 
 # 8: Main
 print("Lade Yelp-Daten...")
