@@ -23,6 +23,7 @@ TEXT_COLUMN = "text"
 RATING_COLUMN = "rating"
 
 MAX_ROWS = 200_000
+RANDOM_STATE = 42
 LEXICON_MIN_DF = 5
 LEXICON_MAX_FEATURES = 50_000   # maximale Anzahl der Features
 
@@ -75,8 +76,8 @@ def build_rating_lexicon(lexicon_source_df):
         raise ValueError("Keine gültigen Texte mit Ratings gefunden.")
 
     if len(lexicon_df) > MAX_ROWS:
-        print(f"Begrenze Trainingsdaten auf die ersten {MAX_ROWS:,} Zeilen.")
-        lexicon_df = lexicon_df.head(MAX_ROWS).copy()
+        print(f"Ziehe zufällige Stichprobe mit {MAX_ROWS:,} von {len(lexicon_df):,} Zeilen.")
+        lexicon_df = lexicon_df.sample(n=MAX_ROWS, random_state=RANDOM_STATE).copy()
 
     print(f"Verwendete Trainingszeilen: {len(lexicon_df):,}")
     print("Erzeuge 1- bis 3-Gramm-Matrix...")
@@ -182,6 +183,7 @@ def main():
         "text_column": TEXT_COLUMN,
         "rating_column": RATING_COLUMN,
         "max_rows": MAX_ROWS,
+        "random_state": RANDOM_STATE,
         "lexicon_min_df": LEXICON_MIN_DF,
         "lexicon_max_features": LEXICON_MAX_FEATURES,
         "created_at": TIMESTAMP,
