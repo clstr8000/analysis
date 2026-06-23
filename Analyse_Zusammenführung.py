@@ -3,20 +3,29 @@
 # Topic-Lexikon, Satzanalyse und Review-Aggregation)
 # ============================================================
 
-import pandas as pd
-import numpy as np
+from pathlib import Path
 from datetime import datetime
 from collections import defaultdict
 
+import pandas as pd
+import numpy as np
 import spacy
-
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 
 # ------------------------------------------------------------
-# 0. Modelle laden
+# 0. Pfade und Modelle laden
 # ------------------------------------------------------------
+
+BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = BASE_DIR / "data"
+
+REVIEWS_FILE = DATA_DIR / "ChickFilA_Bereinigt.xlsx"
+RATING_LEXICON_FILE = BASE_DIR / "generated_sentiment_lexicon_latest.xlsx"
+TOPIC_LEXICON_FILE = BASE_DIR / "topic_lexicon_seeds_only.xlsx"
+OUTPUT_SENTENCE_LEVEL = BASE_DIR / "absa_sentence_level.xlsx"
+OUTPUT_REVIEW_LEVEL = BASE_DIR / "absa_review_level.xlsx"
 
 nlp = spacy.load("en_core_web_sm")
 nlp.max_length = 2_000_000
@@ -292,13 +301,15 @@ def run_absa_pipeline(df_reviews, rating_lex, topic_lex):
 # ------------------------------------------------------------
 
 if __name__ == "__main__":
-    df_reviews = pd.read_excel("../data/ChickFilA_Bereinigt.xlsx")
-    rating_lex = load_rating_lexicon("generated_sentiment_lexicon_latest.xlsx")
-    topic_lex = load_topic_lexicon("topic_lexicon_seeds_only.xlsx")
+    df_reviews = pd.read_excel(REVIEWS_FILE)
+    rating_lex = load_rating_lexicon(RATING_LEXICON_FILE)
+    topic_lex = load_topic_lexicon(TOPIC_LEXICON_FILE)
 
     df_sentences, df_reviews_agg = run_absa_pipeline(df_reviews, rating_lex, topic_lex)
 
-    df_sentences.to_excel("absa_sentence_level.xlsx", index=False)
-    df_reviews_agg.to_excel("absa_review_level.xlsx", index=False)
+    df_sentences.to_excel(OUTPUT_SENTENCE_LEVEL, index=False)
+    df_reviews_agg.to_excel(OUTPUT_REVIEW_LEVEL, index=False)
 
     print("ABSA Export abgeschlossen.")
+    print(f"Satz-Level-Datei: {OUTPUT_SENTENCE_LEVEL}")
+    print(f"Review-Level-Datei: {OUTPUT_REVIEW_LEVEL}")
