@@ -22,6 +22,7 @@ LEXICON_FILE = DATA_DIR / "yelp_final.csv"
 TEXT_COLUMN = "text"
 RATING_COLUMN = "rating"
 
+MAX_ROWS = 200_000
 LEXICON_MIN_DF = 5
 LEXICON_MAX_FEATURES = 50_000   # maximale Anzahl der Features
 
@@ -54,9 +55,8 @@ def read_lexicon_basis(path):
 # =========================================================
 
 def build_rating_lexicon(lexicon_source_df):
-    # -----------------------------
-    # 1. Daten vorbereiten
-    # -----------------------------
+    print("Bereite Texte und Ratings vor...")
+
     lexicon_df = lexicon_source_df[[TEXT_COLUMN, RATING_COLUMN]].copy()
 
     lexicon_df[TEXT_COLUMN] = lexicon_df[TEXT_COLUMN].map(normalize_text)
@@ -74,24 +74,27 @@ def build_rating_lexicon(lexicon_source_df):
     if lexicon_df.empty:
         raise ValueError("Keine gültigen Texte mit Ratings gefunden.")
 
-    # -----------------------------
-    # 2. Vectorizer (1–3-Gramme)
-    # -----------------------------
+    if len(lexicon_df) > MAX_ROWS:
+        print(f"Begrenze Trainingsdaten auf die ersten {MAX_ROWS:,} Zeilen.")
+        lexicon_df = lexicon_df.head(MAX_ROWS).copy()
+
+    print(f"Verwendete Trainingszeilen: {len(lexicon_df):,}")
+    print("Erzeuge 1- bis 3-Gramm-Matrix...")
+
     vectorizer = CountVectorizer(
         lowercase=True,
         stop_words=None,
         ngram_range=(1, 3),   # 1–3-Wort-Ausdrücke
         min_df=LEXICON_MIN_DF,
-        max_features=None,
+        max_features=LEXICON_MAX_FEATURES,
         token_pattern=r"(?u)\b[a-zA-Z][a-zA-Z'-]{2,}\b",
     )
 
     X = vectorizer.fit_transform(lexicon_df[TEXT_COLUMN])
     y = lexicon_df[RATING_COLUMN].astype(int)
+    print(f"Matrix erstellt: {X.shape[0]:,} Zeilen x {X.shape[1]:,} Features")
 
-    # -----------------------------
-    # 3. Logistische Regression
-    # -----------------------------
+    print("Trainiere logistische Regression...")
     logreg = LogisticRegression(
         penalty="l1",
         solver="liblinear",
@@ -102,9 +105,7 @@ def build_rating_lexicon(lexicon_source_df):
 
     logreg.fit(X, y)
 
-    # -----------------------------
-    # 4. Feature-Selektion
-    # -----------------------------
+    print("Selektiere wichtige Features...")
     selector = SelectFromModel(
         logreg,
         max_features=LEXICON_MAX_FEATURES,
@@ -115,11 +116,9 @@ def build_rating_lexicon(lexicon_source_df):
     selected_indices = mask.nonzero()[0]
 
     terms = vectorizer.get_feature_names_out()[selected_indices]
+    print(f"Ausgewählte Lexikon-Terme: {len(terms):,}")
 
-    # -----------------------------
-    # 5. Rating + Confidence pro Term berechnen
-    # -----------------------------
-    # Wir erzeugen eine künstliche Matrix mit 1 Vorkommen pro Term
+    print("Berechne Rating und Confidence pro Term...")
     X_terms = csr_matrix(
         (
             np.ones(len(selected_indices)),
@@ -128,18 +127,10 @@ def build_rating_lexicon(lexicon_source_df):
         shape=(len(selected_indices), X.shape[1])
     )
 
-    # Wahrscheinlichkeiten für jede Klasse (1–5)
     probs = logreg.predict_proba(X_terms)
-
-    # Rating = Klasse mit höchster Wahrscheinlichkeit
     ratings = logreg.classes_[probs.argmax(axis=1)]
-
-    # Confidence = höchste Wahrscheinlichkeit
     confidences = probs.max(axis=1)
 
-    # -----------------------------
-    # 6. Lexikon-DataFrame
-    # -----------------------------
     lexicon = pd.DataFrame({
         "text": terms,
         "rating": ratings,
@@ -148,9 +139,6 @@ def build_rating_lexicon(lexicon_source_df):
 
     lexicon = lexicon.sort_values("confidence", ascending=False)
 
-    # -----------------------------
-    # 7. Reduzierten Vectorizer speichern
-    # -----------------------------
     reduced_vectorizer = CountVectorizer(
         vocabulary=terms,
         lowercase=True,
@@ -172,6 +160,7 @@ def main():
     print("Lade Lexikonbasis...")
 
     lexicon_basis_df = read_lexicon_basis(LEXICON_FILE)
+    print(f"Geladene Zeilen: {len(lexicon_basis_df):,}")
 
     missing_lexicon_columns = {TEXT_COLUMN, RATING_COLUMN} - set(lexicon_basis_df.columns)
 
@@ -192,6 +181,7 @@ def main():
         "lexicon": lexicon,
         "text_column": TEXT_COLUMN,
         "rating_column": RATING_COLUMN,
+        "max_rows": MAX_ROWS,
         "lexicon_min_df": LEXICON_MIN_DF,
         "lexicon_max_features": LEXICON_MAX_FEATURES,
         "created_at": TIMESTAMP,
