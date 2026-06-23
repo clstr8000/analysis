@@ -16,6 +16,7 @@ OUTPUT_FILE = BASE_DIR / "topic_lexicon_seeds_only.xlsx"
 
 TEXT_COLUMN = "text"
 MAX_ROWS = 200_000
+RANDOM_STATE = 42
 MIN_TERM_FREQ = 5
 MAX_CANDIDATES = 10_000
 NGRAM_MAX_N = 3
@@ -266,8 +267,8 @@ df = df[df[TEXT_COLUMN].str.strip().str.lower() != "nan"]
 df = df[df[TEXT_COLUMN].str.strip() != ""]
 
 if len(df) > MAX_ROWS:
-    print(f"Begrenze Input auf die ersten {MAX_ROWS:,} Zeilen.")
-    df = df.head(MAX_ROWS).copy()
+    print(f"Ziehe zufällige Stichprobe mit {MAX_ROWS:,} von {len(df):,} Zeilen.")
+    df = df.sample(n=MAX_ROWS, random_state=RANDOM_STATE).copy()
 
 print(f"Verwendete Zeilen: {len(df):,}")
 
