@@ -30,6 +30,8 @@ OUTPUT_REVIEW_LEVEL = BASE_DIR / "absa_review_level.xlsx"
 
 TEXT_COLUMN = "text"
 BUSINESS_NAME_COLUMN = "business_name"
+MAX_REVIEWS = 50_000
+PROGRESS_EVERY = 500
 
 CFA_PATTERNS = [
     r"chick[\s\-]?fil[\s\-]?a",
@@ -191,7 +193,9 @@ TOPIC_WORDS = {
 # ------------------------------------------------------------
 
 def load_cfa_reviews(path):
+    print("Lade Yelp-Daten...")
     df = pd.read_csv(path)
+    print(f"Geladene Zeilen: {len(df):,}")
 
     missing_columns = {TEXT_COLUMN, BUSINESS_NAME_COLUMN} - set(df.columns)
     if missing_columns:
@@ -206,9 +210,14 @@ def load_cfa_reviews(path):
 
     is_cfa = df[BUSINESS_NAME_COLUMN].astype(str).str.contains(CFA_REGEX, na=False)
     df_cfa = df[is_cfa].copy()
+    print(f"Gefundene Chick-fil-A-Bewertungen: {len(df_cfa):,}")
 
     if df_cfa.empty:
         raise ValueError("Keine Chick-fil-A-Bewertungen in yelp_final.csv gefunden.")
+
+    if len(df_cfa) > MAX_REVIEWS:
+        print(f"Begrenze ABSA auf die ersten {MAX_REVIEWS:,} Chick-fil-A-Bewertungen.")
+        df_cfa = df_cfa.head(MAX_REVIEWS).copy()
 
     return df_cfa
 
@@ -221,6 +230,7 @@ def row_value(row, columns, default=None):
 
 
 def load_rating_lexicon(path):
+    print("Lade Rating-Lexikon...")
     df = pd.read_excel(path)
     lex = {}
     for _, row in df.iterrows():
@@ -228,10 +238,12 @@ def load_rating_lexicon(path):
         rating = int(row["rating"])
         conf = float(row["confidence"])
         lex[term] = (rating, conf)
+    print(f"Rating-Lexikon-Terme: {len(lex):,}")
     return lex
 
 
 def load_topic_lexicon(path):
+    print("Lade Topic-Lexikon...")
     df = pd.read_excel(path)
     lex = {}
     for _, row in df.iterrows():
@@ -239,6 +251,7 @@ def load_topic_lexicon(path):
         topic = str(row["name_cluster"])
         conf = float(row["confidence"])
         lex[term] = (topic, conf)
+    print(f"Topic-Lexikon-Terme: {len(lex):,}")
     return lex
 
 
@@ -359,8 +372,14 @@ def analyze_sentence(sent, rating_lex, topic_lex):
 def run_absa_pipeline(df_reviews, rating_lex, topic_lex):
     sentence_rows = []
     review_rows = []
+    total_reviews = len(df_reviews)
 
-    for _, row in df_reviews.iterrows():
+    print(f"Starte ABSA für {total_reviews:,} Reviews...")
+
+    for idx, (_, row) in enumerate(df_reviews.iterrows(), start=1):
+        if idx == 1 or idx % PROGRESS_EVERY == 0 or idx == total_reviews:
+            print(f"Verarbeite Review {idx:,}/{total_reviews:,}...")
+
         text = row[TEXT_COLUMN]
         user_id = row_value(row, ["user_id", "author_id", "reviewer_id"])
         store_id = row_value(row, ["store_id", "business_id", "location_id", BUSINESS_NAME_COLUMN])
@@ -412,6 +431,9 @@ def run_absa_pipeline(df_reviews, rating_lex, topic_lex):
 
         review_rows.append(review_result)
 
+    print(f"Satz-Level-Zeilen: {len(sentence_rows):,}")
+    print(f"Review-Level-Zeilen: {len(review_rows):,}")
+
     return pd.DataFrame(sentence_rows), pd.DataFrame(review_rows)
 
 
@@ -426,10 +448,11 @@ if __name__ == "__main__":
 
     df_sentences, df_reviews_agg = run_absa_pipeline(df_reviews, rating_lex, topic_lex)
 
+    print("Speichere ABSA-Outputs...")
     df_sentences.to_excel(OUTPUT_SENTENCE_LEVEL, index=False)
     df_reviews_agg.to_excel(OUTPUT_REVIEW_LEVEL, index=False)
 
     print("ABSA Export abgeschlossen.")
-    print(f"Verwendete Chick-fil-A-Bewertungen: {len(df_reviews)}")
+    print(f"Verwendete Chick-fil-A-Bewertungen: {len(df_reviews):,}")
     print(f"Satz-Level-Datei: {OUTPUT_SENTENCE_LEVEL}")
     print(f"Review-Level-Datei: {OUTPUT_REVIEW_LEVEL}")
