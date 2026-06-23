@@ -7,7 +7,22 @@ from collections import Counter  # (counter um Worthäufigkeiten zu zählen)
 from sentence_transformers import SentenceTransformer  # (enthält BERT)
 from pathlib import Path
 
-# 0.1: BERT laden
+# 0.1: Konfiguration
+BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = BASE_DIR / "data"
+
+INPUT_FILE = DATA_DIR / "yelp_final.csv"
+OUTPUT_FILE = BASE_DIR / "topic_lexicon_seeds_only.xlsx"
+
+TEXT_COLUMN = "text"
+MAX_ROWS = 200_000
+MIN_TERM_FREQ = 5
+MAX_CANDIDATES = 10_000
+NGRAM_MAX_N = 3
+MIN_TOPIC_CONFIDENCE = 0.7
+EMBEDDING_BATCH_SIZE = 64
+
+# 0.2: BERT laden
 bert = SentenceTransformer("all-MiniLM-L6-v2")  # (BERT analysiert Text kontextuell)
 
 # 1: Themenwörter zur Orientierung (Seeds)
@@ -174,25 +189,36 @@ def extract_ngrams(text, n=3):
 
 # 3: Wörter aus dem Text filtern
 def build_candidate_words(df):
+    print("Extrahiere Kandidaten aus Review-Texten...")
     all_words = []
-    for text in df["text"]:
+    for text in df[TEXT_COLUMN]:
         if not isinstance(text, str) or text.strip() == "":
             continue
-        for token in extract_ngrams(text, n=3):
+        for token in extract_ngrams(text, n=NGRAM_MAX_N):
             all_words.append(token)
+
     freq = Counter(all_words)
-    return [w for w, c in freq.items() if c > 5]  # Wörter müssen >5 vorkommen
+    candidates = [(w, c) for w, c in freq.items() if c > MIN_TERM_FREQ]
+    candidates = sorted(candidates, key=lambda item: item[1], reverse=True)
+    candidates = candidates[:MAX_CANDIDATES]
+
+    print(f"Kandidaten nach Mindesthäufigkeit: {len(candidates):,}")
+    print(f"Maximale Kandidatenzahl: {MAX_CANDIDATES:,}")
+    return [w for w, _ in candidates]
 
 # 4: BERT-Embedding für Wörter
 def embed_words(words):
-    vectors = bert.encode(words, batch_size=64, show_progress_bar=True)
+    print(f"Erzeuge Embeddings für {len(words):,} Kandidaten...")
+    vectors = bert.encode(words, batch_size=EMBEDDING_BATCH_SIZE, show_progress_bar=True)
     return np.array(vectors), words
 
 # 5: Topic-Seed-Vektoren vorbereiten
-TOPIC_VECS = {topic: bert.encode(seeds) for topic, seeds in TOPIC_SEEDS.items()}
+print("Erzeuge Embeddings für Topic-Seeds...")
+TOPIC_VECS = {topic: bert.encode(seeds, batch_size=EMBEDDING_BATCH_SIZE) for topic, seeds in TOPIC_SEEDS.items()}
 
 # 6: Topics zuweisen (ohne Sentiment)
 def assign_topics_with_confidence(words, word_vectors):
+    print("Weise Topics zu...")
     topic_rows = []
     for w, v in zip(words, word_vectors):
         sims = {}
@@ -207,37 +233,49 @@ def assign_topics_with_confidence(words, word_vectors):
 
         for topic, sim in sims.items():
             conf = (sim - min_sim) / span  # 0–1 normalisiert
-            if conf > 0.7:  # nur starke Zuordnung
+            if conf > MIN_TOPIC_CONFIDENCE:  # nur starke Zuordnung
                 topic_rows.append({
                     "text": w,
                     "name_cluster": topic,
                     "confidence": conf
                 })
+    print(f"Topic-Lexikon-Zeilen: {len(topic_rows):,}")
     return topic_rows
 
 # 7: Lexikon bauen
 def build_topic_lexicon(df):
     words = build_candidate_words(df)
+
+    if not words:
+        raise ValueError("Keine Kandidaten für das Topic-Lexikon gefunden.")
+
     word_vectors, words = embed_words(words)
     topic_rows = assign_topics_with_confidence(words, word_vectors)
     return pd.DataFrame(topic_rows)
 
 # 8: Main
-BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data"
-
-INPUT_FILE = DATA_DIR / "yelp_final.csv"
-OUTPUT_FILE = BASE_DIR / "topic_lexicon_seeds_only.xlsx"
-
+print("Lade Yelp-Daten...")
 df = pd.read_csv(INPUT_FILE)
-df["text"] = df["text"].astype(str)
-df = df[df["text"].str.strip().str.lower() != "nan"]
-df = df[df["text"].str.strip() != ""]
+print(f"Geladene Zeilen: {len(df):,}")
+
+if TEXT_COLUMN not in df.columns:
+    raise ValueError(f"Spalte fehlt in yelp_final.csv: {TEXT_COLUMN}")
+
+df[TEXT_COLUMN] = df[TEXT_COLUMN].astype(str)
+df = df[df[TEXT_COLUMN].str.strip().str.lower() != "nan"]
+df = df[df[TEXT_COLUMN].str.strip() != ""]
+
+if len(df) > MAX_ROWS:
+    print(f"Begrenze Input auf die ersten {MAX_ROWS:,} Zeilen.")
+    df = df.head(MAX_ROWS).copy()
+
+print(f"Verwendete Zeilen: {len(df):,}")
 
 lexicon_df = build_topic_lexicon(df)
 lexicon_df.to_excel(OUTPUT_FILE, index=False)
 
 print("Fertig! Themenlexikon (Seeds) erstellt.")
+print(f"Output-Datei: {OUTPUT_FILE}")
 
 
 
