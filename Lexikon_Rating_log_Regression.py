@@ -22,7 +22,7 @@ TEXT_COLUMN = "text"
 RATING_COLUMN = "rating"
 
 LEXICON_MIN_DF = 5
-LEXICON_MAX_FEATURES = 5000000   # maximale Anzahl der Features
+LEXICON_MAX_FEATURES = 50_000   # maximale Anzahl der Features
 
 TIMESTAMP = datetime.now().strftime("%d_%m_%Y_%H_%M")
 
@@ -175,7 +175,7 @@ def main():
 
     if missing_lexicon_columns:
         raise ValueError(
-            f"Diese Spalten fehlen in lexikonbasis.csv: "
+            f"Diese Spalten fehlen in yelp_final.csv: "
             f"{sorted(missing_lexicon_columns)}"
         )
 
