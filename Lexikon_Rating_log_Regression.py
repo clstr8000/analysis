@@ -99,7 +99,6 @@ def build_rating_lexicon(lexicon_source_df):
     logreg = LogisticRegression(
         penalty="l1",
         solver="liblinear",
-        multi_class="ovr",
         max_iter=2000,
         n_jobs=-1
     )
