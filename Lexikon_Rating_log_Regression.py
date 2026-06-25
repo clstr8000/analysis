@@ -98,9 +98,10 @@ def build_rating_lexicon(lexicon_source_df):
     print("Trainiere logistische Regression...")
     logreg = LogisticRegression(
         penalty="l1",
-        solver="liblinear",
+        solver="saga",
         max_iter=2000,
-        n_jobs=-1
+        n_jobs=-1,
+        random_state=RANDOM_STATE
     )
 
     logreg.fit(X, y)
