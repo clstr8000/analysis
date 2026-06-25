@@ -143,6 +143,23 @@ TOPIC_SEEDS = {
     "GENERAL": ["good", "bad", "great", "nice", "amazing", "terrible", "awful", "excellent", "fine", "okay", "average", "experience", "visit", "place", "spot", "location", "recommend", "disappointed", "satisfied", "overall", "favorite", "best", "worst", "love", "liked", "enjoyed", "happy", "unhappy", "return", "come back", "never again", "consistent", "inconsistent"]
 }
 
+AMBIGUOUS_TOPIC_SEEDS = {
+    "FOOD": {
+        "food", "burger", "meal", "sauce", "fresh", "quality", "temperature", "filet",
+        "jalapeno ranch", "jalapeño ranch", "wrap", "salad", "salads", "soup",
+        "side item", "side items", "kids meal", "kid's meal", "entree", "entrees",
+        "catering", "catering menu", "catering tray", "icedream", "treat", "treats",
+        "dressing", "dressings", "sauces", "dipping sauce", "dipping sauces"
+    },
+    "DRINKS": {
+        "drink", "drinks", "beverage", "beverages", "refill", "ice", "watery",
+        "cold drink", "hot drink", "carbonated", "flat soda"
+    }
+}
+TOPIC_SEEDS = {
+    topic: [seed for seed in seeds if seed not in AMBIGUOUS_TOPIC_SEEDS.get(topic, set())]
+    for topic, seeds in TOPIC_SEEDS.items()
+}
 TOPIC_WORDS = {topic: {str(seed).lower().strip() for seed in seeds} for topic, seeds in TOPIC_SEEDS.items()}
 
 nlp = spacy.load("en_core_web_sm")
@@ -238,10 +255,10 @@ def extract_aspects(sent):
 
 def analyze_sentence(sent, rating_lex, topic_lex):
     aspects = extract_aspects(sent)
-    results = []
     if not aspects:
         rating, conf, src = combine_rating(sent.text, sent, rating_lex)
         return [{"sentence": sent.text, "text": sent.text, "rating": rating, "confidence": conf, "topic": "GENERAL", "topic_confidence": 0.0, "source": src}]
+    results = []
     for asp in aspects:
         rating, conf, src = combine_rating(asp, sent, rating_lex)
         topic, topic_conf = get_topic(asp, topic_lex)
