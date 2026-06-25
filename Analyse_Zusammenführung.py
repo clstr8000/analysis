@@ -161,6 +161,8 @@ TOPIC_SEEDS = {
     for topic, seeds in TOPIC_SEEDS.items()
 }
 TOPIC_WORDS = {topic: {str(seed).lower().strip() for seed in seeds} for topic, seeds in TOPIC_SEEDS.items()}
+for topic, seeds in AMBIGUOUS_TOPIC_SEEDS.items():
+    TOPIC_WORDS.setdefault(topic, set()).update(seeds)
 
 nlp = spacy.load("en_core_web_sm")
 nlp.max_length = 2_000_000
