@@ -19,7 +19,8 @@ RANDOM_STATE = 42
 MIN_TERM_FREQ = 3
 MAX_CANDIDATES = 30_000
 NGRAM_MAX_N = 3
-MIN_TOPIC_CONFIDENCE = 0.65
+MIN_TOPIC_CONFIDENCE = 0.50
+MIN_TOPIC_MARGIN = 0.05
 EMBEDDING_BATCH_SIZE = 32
 SEED_CONFIDENCE = 1.0
 EMBEDDING_MODEL = "all-mpnet-base-v2"
@@ -151,28 +152,45 @@ def build_candidate_words(df):
 
 def embed_words(words):
     print(f"Erzeuge Embeddings für {len(words):,} Kandidaten...")
-    vectors = bert.encode(words, batch_size=EMBEDDING_BATCH_SIZE, show_progress_bar=True)
+    vectors = bert.encode(
+        words,
+        batch_size=EMBEDDING_BATCH_SIZE,
+        show_progress_bar=True,
+        normalize_embeddings=True
+    )
     return np.array(vectors), words
 
 
 print("Erzeuge Embeddings für Topic-Seeds...")
-TOPIC_VECS = {topic: bert.encode(seeds, batch_size=EMBEDDING_BATCH_SIZE) for topic, seeds in TOPIC_SEEDS.items()}
+TOPIC_VECS = {
+    topic: np.array(bert.encode(seeds, batch_size=EMBEDDING_BATCH_SIZE, normalize_embeddings=True))
+    for topic, seeds in TOPIC_SEEDS.items()
+}
 
 
 def assign_topics_with_confidence(words, word_vectors):
-    print("Weise Topics zu...")
+    print("Weise Topics streng mit echter Cosine-Similarity zu...")
     topic_rows = []
+
     for w, v in zip(words, word_vectors):
-        sims = {}
-        for topic, seed_vecs in TOPIC_VECS.items():
-            sims[topic] = np.mean([np.dot(v, sv) / (np.linalg.norm(v) * np.linalg.norm(sv)) for sv in seed_vecs])
-        sim_values = list(sims.values())
-        min_sim, max_sim = min(sim_values), max(sim_values)
-        span = max_sim - min_sim if max_sim != min_sim else 1.0
-        for topic, sim in sims.items():
-            conf = (sim - min_sim) / span
-            if conf > MIN_TOPIC_CONFIDENCE:
-                topic_rows.append({"text": w, "name_cluster": topic, "confidence": conf, "source": "candidate_similarity"})
+        topic_scores = {
+            topic: float(np.max(seed_vecs @ v))
+            for topic, seed_vecs in TOPIC_VECS.items()
+        }
+        ranked_topics = sorted(topic_scores.items(), key=lambda item: item[1], reverse=True)
+        best_topic, best_score = ranked_topics[0]
+        second_score = ranked_topics[1][1] if len(ranked_topics) > 1 else 0.0
+        margin = best_score - second_score
+
+        if best_score >= MIN_TOPIC_CONFIDENCE and margin >= MIN_TOPIC_MARGIN:
+            topic_rows.append({
+                "text": w,
+                "name_cluster": best_topic,
+                "confidence": best_score,
+                "topic_margin": margin,
+                "source": "candidate_similarity"
+            })
+
     print(f"Topic-Lexikon-Zeilen aus Kandidaten: {len(topic_rows):,}")
     return topic_rows
 
@@ -182,7 +200,13 @@ def add_seed_rows(lexicon_df):
     seed_rows = []
     for topic, seeds in TOPIC_SEEDS.items():
         for seed in seeds:
-            seed_rows.append({"text": str(seed).lower().strip(), "name_cluster": topic, "confidence": SEED_CONFIDENCE, "source": "topic_seed"})
+            seed_rows.append({
+                "text": str(seed).lower().strip(),
+                "name_cluster": topic,
+                "confidence": SEED_CONFIDENCE,
+                "topic_margin": np.nan,
+                "source": "topic_seed"
+            })
     seed_df = pd.DataFrame(seed_rows)
     combined_df = pd.concat([lexicon_df, seed_df], ignore_index=True)
     combined_df = combined_df.sort_values(["text", "confidence"], ascending=[True, False])
