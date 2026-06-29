@@ -5,7 +5,6 @@
 # - Analysiert zusaetzlich ChickFilA_Bereinigt 2.xlsx als Washington-Datei
 # ============================================================
 
-from pathlib import Path
 import importlib
 
 import pandas as pd
@@ -16,6 +15,7 @@ STRICT_TOPIC_MIN_CONFIDENCE = 0.80
 
 YELP_REVIEWS_FILE = absa.DATA_DIR / "yelp_final.csv"
 WASHINGTON_REVIEWS_FILE = absa.DATA_DIR / "ChickFilA_Bereinigt 2.xlsx"
+STRICT_TOPIC_LEXICON_FILE = absa.DATA_DIR / "Themenlexikon.xlsx"
 
 YELP_OUTPUT_SENTENCE_LEVEL = absa.BASE_DIR / "absa_sentence_level_streng.xlsx"
 YELP_OUTPUT_REVIEW_LEVEL = absa.BASE_DIR / "absa_review_level_streng.xlsx"
@@ -101,7 +101,7 @@ if __name__ == "__main__":
     absa.get_topic = get_topic_strict
 
     rating_lex = absa.load_rating_lexicon(absa.RATING_LEXICON_FILE)
-    topic_lex = absa.load_topic_lexicon(absa.TOPIC_LEXICON_FILE)
+    topic_lex = absa.load_topic_lexicon(STRICT_TOPIC_LEXICON_FILE)
 
     run_and_export(
         "Yelp streng",
